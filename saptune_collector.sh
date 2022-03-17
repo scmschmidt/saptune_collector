@@ -31,6 +31,8 @@
 #                                    sc_timestamp now printed even with reduced metric
 #                                    added information about how Note was enabled/applied
 #               16.03.2022  v0.5.1   get rid of typos...
+#               17.03.2022  v0.6     added `sc_saptune_service_active` and `sc_saptune_service_enabled`
+#                                    added `sc_saptune_note_verify`
 #
 # Exit codes:
 #
@@ -40,7 +42,7 @@
 #   3   saptune data could not be collected
 #
 
-version="0.5.1"
+version="0.6"
 
 # Define exit codes.
 exit_ok=0
@@ -92,6 +94,10 @@ saptune_version="${saptune_version: -2:1}"  # Works only with one digit version 
 [ "${saptune_package_version}" != '3' -o "${saptune_version}" != '3'  ] && 
     { print_time_and_version_metric "${saptune_version}" "${saptune_package}" ; exit ${exit_unsupported} ; }
 
+# Get information about saptune service unit.
+saptune_service_active=$(systemctl is-active saptune.service)
+saptune_service_enabled=$(systemctl is-enabled saptune.service)
+
 # Retrieve all available Notes (available_notes) and there status (note_status) and Solutions (available_solutions).
 declare -A available_notes available_solutions note_status
 shopt -s extglob
@@ -105,7 +111,7 @@ while read line ; do
     case "${status}" in 
         *\**)   note_status[${id}]=1 ;;  # 1 -> enabled by solution
         *\+*)   note_status[${id}]=2 ;;  # 2 -> enabled manually
-        *\-*)   note_status[${id}]=0 ;;  # 0 -> reverted from solution
+        *\-*)   note_status[${id}]=3 ;;  # 3 -> reverted from solution
         *)      note_status[${id}]=0 ;;  # 0 == not enabled
     esac
 done < <(saptune note list |  sed '/^Remember/,$d' | grep -v -e 'current order of enabled note' -e '^[[:space:]]*Version [0-9]* from' -e '^All notes (+ denotes manually enabled' -e '^$' | expand -t 7 | nl -s :)
@@ -135,14 +141,28 @@ saptune_enabled_solution=$(saptune solution enabled | tr -d '\n') || exit ${exit
 # Retrieve applied Solution.
 saptune_applied_solution=$(saptune solution applied | tr -d '\n') || exit ${exit_retrieval_error}
 
-# Check for compliance.
-saptune_compliance=0
-saptune note verify >/dev/null 2>&1 && saptune_compliance=1
+# Check compliance of all applied Notes.
+saptune_compliance=1
+declare -A saptune_verify_status saptune_verify_output
+for id in "${!saptune_applied_notes[@]}"; do 
+    status=1
+    output=$(saptune note verify "${id}" 2>&1) || status=0
+    saptune_verify_status[${id}]="${status}"
+    saptune_verify_output[${id}]="${output}"
+    saptune_compliance=$(( saptune_compliance && status ))
+done 
 
 # Output of full metrics.
-
 print_time_and_version_metric "${saptune_version}" "${saptune_package}"
-echo "# HELP sc_saptune_note_enabled Lists all available Notes and if they're enabled by a solution (1), enabled manually (2), not enabled at all or reverted (0)."
+echo "# HELP sc_saptune_service_active Result of 'systemctl is-active saptune.service'."
+echo "# TYPE sc_saptune_service_active gauge"
+echo "sc_saptune_service_active ${saptune_service_active}"
+echo
+echo "# HELP sc_saptune_service_enabled Result of 'systemctl is-enabled saptune.service'."
+echo "# TYPE sc_saptune_service_enabled gauge"
+echo "sc_saptune_service_enabled ${saptune_service_enabled}"
+echo
+echo "# HELP sc_saptune_note_enabled Lists all available Notes and if they're enabled by a solution (1), enabled manually (2), reverted (3) or not enabled at all (3)."
 echo "# TYPE sc_saptune_note_enabled gauge"
 for id in "${!available_notes[@]}"; do 
     echo "sc_saptune_note_enabled{note_desc=\"${available_notes[$id]}\",note_id=\"${id}\"} ${note_status[$id]}"
@@ -153,7 +173,7 @@ echo "# TYPE sc_saptune_note_applied gauge"
 for id in "${!available_notes[@]}"; do 
     status=0
     [ -n "${saptune_applied_notes[${id}]}" ] && status=1
-    echo "sc_saptune_note_applied{note_desc=\"${available_notes[$id]}\",note_id=\"${id}\"} ${status}"
+    echo "sc_saptune_note_applied{note_desc=\"${available_notes[$id]}\",note_id=\"${id}\"} ${note_status[$id]}"
 done
 echo 
 echo "# HELP sc_saptune_solution_enabled Lists all available Solutions and if it is enabled (1) or not (0)."
@@ -171,6 +191,12 @@ for id in "${!available_solutions[@]}"; do
     [ "${id}" = "${saptune_applied_solution}" ] && status=1
     echo "sc_saptune_solution_applied{note_list=\"${available_solutions[$id]}\",solution_id=\"${id}\"} ${status}"
 done
+echo 
+echo "# HELP sc_saptune_note_verify Shows for each applied Notes if it is compliant (1) or not (0) and why."
+echo "# TYPE sc_saptune_note_verify gauge"
+for id in "${!saptune_applied_notes[@]}"; do 
+    echo "sc_saptune_note_verify{note_id=\"${id}\", output=\"${saptune_verify_output[${id}]}\" ${saptune_verify_status[${id}]}"
+done 
 echo 
 echo "# HELP sc_saptune_compliance Shows if applied Notes are compliant (1) or not (0)."
 echo "# TYPE sc_saptune_compliance gauge"
