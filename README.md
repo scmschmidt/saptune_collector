@@ -16,13 +16,13 @@ different information and uses different metric names:
 | ---                             | ---   | --- | --- | 
 | `sc_timestamp`                  | gauge | Timestamp (epoch) when metrics were generated. | `sc_timestamp 1646841231` |
 | `sc_saptune`                    | gauge | Contains saptune version information (configured and package). | `sc_saptune{version="3",package="saptune-3.0.2-8.22.2.x86_64"} 1` |
-| `sc_saptune_service_active`     | gauge | Result of `systemctl is-active saptune.service`. | `sc_saptune_service_active failed` | 
-| `sc_saptune_service_enabled`    | gauge | Result of `systemctl is-enabled saptune.service`. | `sc_saptune_service_enabled disabled` | 
+| `sc_saptune_service_active`     | gauge | Tells if `saptune.service` is active (1) or not (0).  | `sc_saptune_service_active 1` | 
+| `sc_saptune_service_enabled`    | gauge | Tells if `saptune.service` is enabled (1) or not (0). | `sc_saptune_service_enabled 1` | 
 | `sc_saptune_note_enabled`       | gauge | Lists all available Notes and if they're enabled by a solution (1), enabled manually (2), reverted (3) or not enabled at all (0). " | `saptune_note_enabled{note_desc="Linux: User and system resource limits",note_id="1771258"} 1` |
 | `sc_saptune_note_applied`       | gauge | Lists all available Notes and if they're applied  (1) or not (0). | `saptune_note_applied{note_desc="Linux: User and system resource limits",note_id="1771258"} 1` |
 | `sc_saptune_solution_enabled`   | gauge | Lists all available Solutions and if it is enabled (1) or not (0). | `sc_saptune_solution_enabled{solution_name="HANA"} 1` |
 | `sc_saptune_solution_applied`   | gauge | Lists all available Solutions and if it is applied (1) or not (0).  | `sc_saptune_solution_applied{solution_name="HANA"} 1` |
-| `sc_saptune_note_verify`        | gauge | Shows for each applied Notes if it is compliant (1) or not (0) and why." | `sc_saptune_note_verify{note_id="941735", output="..." 1` | 
+| `sc_saptune_note_verify`        | gauge | Shows for each applied Notes if it is compliant (1) or not (0) and why (base64)." | `sc_saptune_note_verify{note_id="941735", output="..." 1` | 
 | `sc_saptune_compliance`         | gauge | Shows overall compliance of all applied Notes: yes (1) or no (0). | `sc_saptune_compliance 1` | 
 
  
@@ -65,7 +65,7 @@ WantedBy=timers.target
                                                               
 2. Create `saptune_collector.service` and `saptune_collector_timer` in `/etc/systemd/system/`.
 
-3. Add the following argument to the line `ARGS=` in `/etc/sysconfig/prometheus-node_exporter`: `--collector.textfile.directory=/opt/prometheus/data/`
+3. Add the following argument to the line `ARGS=` in `/etc/sysconfig/prometheus-node_exporter`: `--collector.textfile.directory=<directory_with_data_file>`
 
 4. Execute: 
  

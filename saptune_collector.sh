@@ -33,6 +33,9 @@
 #               16.03.2022  v0.5.1   get rid of typos...
 #               17.03.2022  v0.6     added `sc_saptune_service_active` and `sc_saptune_service_enabled`
 #                                    added `sc_saptune_note_verify`
+#               18.03.2022  v0.7     fixed brace error in metric
+#                                    `sc_saptune_service_active` and `sc_saptune_service_enabled` report 0/1
+#                                    verify output now base64 and newline stripped
 #
 # Exit codes:
 #
@@ -42,7 +45,7 @@
 #   3   saptune data could not be collected
 #
 
-version="0.6"
+version="0.7"
 
 # Define exit codes.
 exit_ok=0
@@ -95,8 +98,10 @@ saptune_version="${saptune_version: -2:1}"  # Works only with one digit version 
     { print_time_and_version_metric "${saptune_version}" "${saptune_package}" ; exit ${exit_unsupported} ; }
 
 # Get information about saptune service unit.
-saptune_service_active=$(systemctl is-active saptune.service)
-saptune_service_enabled=$(systemctl is-enabled saptune.service)
+saptune_service_active=0
+saptune_service_enabled=0
+systemctl is-active saptune.service > /dev/null 2>&1 && saptune_service_active=1
+systemctl is-enabled saptune.service > /dev/null 2>&1 && saptune_service_enabled=1
 
 # Retrieve all available Notes (available_notes) and there status (note_status) and Solutions (available_solutions).
 declare -A available_notes available_solutions note_status
@@ -146,7 +151,7 @@ saptune_compliance=1
 declare -A saptune_verify_status saptune_verify_output
 for id in "${!saptune_applied_notes[@]}"; do 
     status=1
-    output=$(saptune note verify "${id}" 2>&1) || status=0
+    output=$(saptune note verify "${id}" 2>&1 | base64 | tr -d '\n') || status=0
     saptune_verify_status[${id}]="${status}"
     saptune_verify_output[${id}]="${output}"
     saptune_compliance=$(( saptune_compliance && status ))
@@ -154,11 +159,11 @@ done
 
 # Output of full metrics.
 print_time_and_version_metric "${saptune_version}" "${saptune_package}"
-echo "# HELP sc_saptune_service_active Result of 'systemctl is-active saptune.service'."
+echo "# HELP sc_saptune_service_active Tells if saptune.service is active (1) or not (0)."
 echo "# TYPE sc_saptune_service_active gauge"
 echo "sc_saptune_service_active ${saptune_service_active}"
 echo
-echo "# HELP sc_saptune_service_enabled Result of 'systemctl is-enabled saptune.service'."
+echo "# HELP sc_saptune_service_enabled Tells if saptune.service is enabled (1) or not (0)."
 echo "# TYPE sc_saptune_service_enabled gauge"
 echo "sc_saptune_service_enabled ${saptune_service_enabled}"
 echo
@@ -195,7 +200,7 @@ echo
 echo "# HELP sc_saptune_note_verify Shows for each applied Notes if it is compliant (1) or not (0) and why."
 echo "# TYPE sc_saptune_note_verify gauge"
 for id in "${!saptune_applied_notes[@]}"; do 
-    echo "sc_saptune_note_verify{note_id=\"${id}\", output=\"${saptune_verify_output[${id}]}\" ${saptune_verify_status[${id}]}"
+    echo "sc_saptune_note_verify{note_id=\"${id}\", output=\"${saptune_verify_output[${id}]}\"} ${saptune_verify_status[${id}]}"
 done 
 echo 
 echo "# HELP sc_saptune_compliance Shows if applied Notes are compliant (1) or not (0)."
