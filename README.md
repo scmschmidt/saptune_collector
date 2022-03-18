@@ -22,7 +22,7 @@ different information and uses different metric names:
 | `sc_saptune_note_applied`       | gauge | Lists all available Notes and if they're applied  (1) or not (0). | `saptune_note_applied{note_desc="Linux: User and system resource limits",note_id="1771258"} 1` |
 | `sc_saptune_solution_enabled`   | gauge | Lists all available Solutions and if it is enabled (1) or not (0). | `sc_saptune_solution_enabled{solution_name="HANA"} 1` |
 | `sc_saptune_solution_applied`   | gauge | Lists all available Solutions and if it is applied (1) or not (0).  | `sc_saptune_solution_applied{solution_name="HANA"} 1` |
-| `sc_saptune_note_verify`        | gauge | Shows for each applied Notes if it is compliant (1) or not (0) and why (base64)." | `sc_saptune_note_verify{note_id="941735", output="..." 1` | 
+| `sc_saptune_note_verify`        | gauge | Shows for each applied Notes if it is compliant (1) or not (0)." | `sc_saptune_note_verify{note_id="941735"} 1` | 
 | `sc_saptune_compliance`         | gauge | Shows overall compliance of all applied Notes: yes (1) or no (0). | `sc_saptune_compliance 1` | 
 
  

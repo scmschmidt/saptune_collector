@@ -36,6 +36,7 @@
 #               18.03.2022  v0.7     fixed brace error in metric
 #                                    `sc_saptune_service_active` and `sc_saptune_service_enabled` report 0/1
 #                                    verify output now base64 and newline stripped
+#               18.03.2022  v0.8     verify output removed
 #
 # Exit codes:
 #
@@ -45,7 +46,7 @@
 #   3   saptune data could not be collected
 #
 
-version="0.7"
+version="0.8"
 
 # Define exit codes.
 exit_ok=0
@@ -148,12 +149,11 @@ saptune_applied_solution=$(saptune solution applied | tr -d '\n') || exit ${exit
 
 # Check compliance of all applied Notes.
 saptune_compliance=1
-declare -A saptune_verify_status saptune_verify_output
+declare -A saptune_verify_status
 for id in "${!saptune_applied_notes[@]}"; do 
     status=1
-    output=$(saptune note verify "${id}" 2>&1 | base64 | tr -d '\n') || status=0
+    saptune note verify "${id}" > /dev/null 2>&1 || status=0
     saptune_verify_status[${id}]="${status}"
-    saptune_verify_output[${id}]="${output}"
     saptune_compliance=$(( saptune_compliance && status ))
 done 
 
@@ -200,7 +200,7 @@ echo
 echo "# HELP sc_saptune_note_verify Shows for each applied Notes if it is compliant (1) or not (0) and why."
 echo "# TYPE sc_saptune_note_verify gauge"
 for id in "${!saptune_applied_notes[@]}"; do 
-    echo "sc_saptune_note_verify{note_id=\"${id}\", output=\"${saptune_verify_output[${id}]}\"} ${saptune_verify_status[${id}]}"
+    echo "sc_saptune_note_verify{note_id=\"${id}\"} ${saptune_verify_status[${id}]}"
 done 
 echo 
 echo "# HELP sc_saptune_compliance Shows if applied Notes are compliant (1) or not (0)."
