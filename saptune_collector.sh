@@ -37,6 +37,7 @@
 #                                    `sc_saptune_service_active` and `sc_saptune_service_enabled` report 0/1
 #                                    verify output now base64 and newline stripped
 #               18.03.2022  v0.8     verify output removed
+#               22.03.2022  v0.9     change note verify to get results from every available_notes
 #
 # Exit codes:
 #
@@ -199,8 +200,10 @@ done
 echo 
 echo "# HELP sc_saptune_note_verify Shows for each applied Notes if it is compliant (1) or not (0) and why."
 echo "# TYPE sc_saptune_note_verify gauge"
-for id in "${!saptune_applied_notes[@]}"; do 
-    echo "sc_saptune_note_verify{note_id=\"${id}\"} ${saptune_verify_status[${id}]}"
+for id in "${!available_notes[@]}"; do
+    status=0
+    [ -n "${saptune_verify_status[${id}]}" ] && status=1
+    echo "sc_saptune_note_verify{note_id=\"${id}\"} $status"
 done 
 echo 
 echo "# HELP sc_saptune_compliance Shows if applied Notes are compliant (1) or not (0)."
